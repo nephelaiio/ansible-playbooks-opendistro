@@ -1,0 +1,12 @@
+---
+- name: Install opendistro elasticsearch
+
+  hosts: opendistro_elasticsearch
+
+  become: yes
+
+  roles:
+
+    - nephelaiio.plugins
+    - nephelaiio.docker
+    - nephelaiio.elasticsearch

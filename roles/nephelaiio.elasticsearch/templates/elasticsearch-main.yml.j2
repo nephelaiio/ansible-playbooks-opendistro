@@ -1,0 +1,38 @@
+---
+network.host: 0.0.0.0
+cluster.name: opendistro
+cluster.initial_master_nodes:
+{% for config_node in elasticsearch_config_nodes %}
+  - {{ config_node }}
+{% endfor %}
+transport.tcp.port: 9300
+discovery.seed_hosts:
+{% for config_node in elasticsearch_config_nodes %}
+  - {{ config_node }}:9300
+{% endfor %}
+node.name: {{ elasticsearch_config_nodename }}
+node.master: true
+node.data: true
+path.data: /usr/share/elasticsearch/data/nodes
+bootstrap.memory_lock: 'false'
+opendistro_security.nodes_dn:
+{% for config_node in elasticsearch_config_nodes %}
+  - CN={{ config_node }},O={{ elasticsearch_config_node_base_dn }}
+{% endfor %}
+  - /CN=.*/
+opendistro_security.allow_default_init_securityindex: true
+opendistro_security.authcz.admin_dn:
+  - {{ elasticsearch_config_admin_dn }}
+opendistro_security.ssl.transport.pemcert_filepath: {{ elasticsearch_config_node_cert  | basename }}
+opendistro_security.ssl.transport.pemkey_filepath: {{ elasticsearch_config_node_key  | basename }}
+opendistro_security.ssl.transport.pemtrustedcas_filepath: {{ elasticsearch_config_ca_cert  | basename }}
+opendistro_security.ssl.transport.enforce_hostname_verification: false
+opendistro_security.ssl.http.enabled: true
+opendistro_security.ssl.http.pemcert_filepath: {{ elasticsearch_config_node_cert  | basename }}
+opendistro_security.ssl.http.pemkey_filepath: {{ elasticsearch_config_node_key  | basename }}
+opendistro_security.ssl.http.pemtrustedcas_filepath: {{ elasticsearch_config_ca_cert  | basename }}
+opendistro_security.audit.type: internal_elasticsearch
+opendistro_security.enable_snapshot_restore_privilege: true
+opendistro_security.check_snapshot_restore_write_privileges: true
+opendistro_security.restapi.roles_enabled: ["all_access", "security_rest_api_access"]
+cluster.routing.allocation.disk.threshold_enabled: false

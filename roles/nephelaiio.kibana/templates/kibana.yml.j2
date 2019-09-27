@@ -1,0 +1,20 @@
+---
+server.host: 0.0.0.0
+server.name: {{ kibana_config_url }}
+server.port: {{ kibana_service_port }}
+logging.verbose: true
+elasticsearch.preserveHost: true
+elasticsearch.ssl.verificationMode: full
+elasticsearch.ssl.certificate: {{ kibana_config_ssl_cert }}
+elasticsearch.ssl.certificateAuthorities:
+  - {{ kibana_config_ssl_ca_cert }}
+elasticsearch.ssl.key: {{ kibana_config_ssl_key }}
+elasticsearch.hosts:
+{% for kibana_host in kibana_config_elasticsearch_hosts %}
+  - {{ kibana_host }}
+{% endfor %}
+elasticsearch.username: "{{ kibana_config_elasticsearch_user }}"
+elasticsearch.password: "{{ kibana_config_elasticsearch_pass }}"
+opendistro_security.allow_client_certificates: true
+opendistro_security.cookie.secure: true
+opendistro_security.cookie.password: {{ kibana_config_cookie_pass }}

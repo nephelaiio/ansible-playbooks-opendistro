@@ -1,0 +1,7 @@
+---
+- src: nephelaiio.plugins
+  version: 1.0.20
+- src: nephelaiio.docker
+  version: 5.0.0
+- src: https://github.com/nephelaiio/ansible-role-docker-systemd-service.git
+  name: mhutter.docker-systemd-service

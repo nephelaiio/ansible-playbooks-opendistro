@@ -1,0 +1,136 @@
+---
+- name: install docker
+  include_role:
+    name: nephelaiio.docker
+  vars:
+    docker_log_conf:
+      log-driver: "json-file"
+      log-opts:
+        max-size: "10m"
+        max-file: '3'
+      dns: "{{ kibana_dns_forwarders }}"
+    docker_log_conf_manage: yes
+
+- name: pull docker container
+  docker_image:
+    name: "{{ kibana_docker_image }}"
+
+- block:
+
+    - name: inspect docker container
+      docker_container:
+        name: kibana-inspect 
+        image: "{{ kibana_docker_image }}"
+        command: id
+        detach: false
+      register: kibana_inspect
+      changed_when: false
+
+    - name: record kibana user metadata
+      set_fact:
+        kibana_user_info: "{{ kibana_inspect.ansible_facts.docker_container.Output }}"
+
+    - name: record kibana user attributes
+      set_fact:
+        kibana_user_id: "{{ kibana_user_info | regex_search(userid_regex, '\\1') | first }}"
+      vars:
+        userid_regex: 'uid=([0-9]+)\('
+        username_regex: 'uid=[0-9]+\(([^ ]+)\)'
+
+  when: kibana_user_id is not defined
+  tags:
+    - always
+
+- name: enumerate system users
+  getent:
+    database: passwd
+  register: passwd_query
+  tags:
+    - always
+
+- name: index system users
+  set_fact:
+    kibana_user_present: yes
+    kibana_user_name: "{{ kibana_uname }}"
+  vars:
+    kibana_uid: "{{ item[1] }}"
+    kibana_uname: "{{ item[3] | split_with(',') | first }}"
+  loop_control:
+    label: "{{ kibana_uname }} {{ kibana_uid }}"
+  loop: "{{ passwd_query.ansible_facts.getent_passwd.values() | list }}"
+  when: (kibana_uid | string) == (kibana_user_id | string)
+  tags:
+    - always
+
+- name: create kibana user
+  user:
+    name: "{{ kibana_user_name }}"
+    uid: "{{ kibana_user_id }}"
+  when: not kibana_user_present | default('no') | bool
+  tags:
+    - always
+
+- name: manage kibana configuration
+  template:
+    src: kibana.yml.j2
+    dest: "{{ kibana_conf_file }}"
+    owner: "{{ kibana_user_name }}"
+    mode: 0640
+  vars:
+    kibana_config_url: "{{ kibana_url }}"
+    kibana_config_elasticsearch_hosts: "{{ kibana_elasticsearch_hosts }}"
+    kibana_config_elasticsearch_user: "{{ elasticsearch_kibana_user }}"
+    kibana_config_elasticsearch_pass: "{{ elasticsearch_kibana_pass }}"
+    kibana_config_cookie_pass: "{{ kibana_cookie_pass }}"
+    kibana_config_ssl_cert: "{{ kibana_elasticsearch_cert }}"
+    kibana_config_ssl_key: "{{ kibana_elasticsearch_key }}"
+    kibana_config_ssl_ca_cert: "{{ kibana_elasticsearch_ca_cert }}"
+  notify: restart kibana
+  tags:
+    - kibana
+
+- name: clean up docker inspect container
+  docker_container:
+    name: kibana-inspect 
+    state: absent
+  changed_when: false
+
+- name: install acl requirements
+  package:
+    name: acl
+  tags:
+    - elasticsearch
+
+- name: manage kibana file permissions
+  acl:
+    path: "{{ item }}"
+    entity: "{{ kibana_user_name }}"
+    etype: user
+    permissions: r
+    state: present
+  loop:
+    - "{{ kibana_conf_file }}"
+    - "{{ kibana_elasticsearch_ca_cert }}"
+    - "{{ kibana_elasticsearch_cert }}"
+    - "{{ kibana_elasticsearch_key }}"
+  tags:
+    - kibana
+
+- name: install kibana docker image and service
+  include_role:
+    name: mhutter.docker-systemd-service
+    apply:
+      tags:
+        - kibana
+  vars:
+    container_name: "{{ kibana_container_name }}"
+    container_image: "{{ kibana_docker_image }}"
+    service_name: "{{ container_name }}"
+    container_host_network: true
+    container_volumes:
+      - "{{ kibana_conf_file }}:/usr/share/kibana/config/kibana.yml"
+      - "{{ kibana_elasticsearch_ca_cert }}:{{ kibana_elasticsearch_ca_cert }}"
+      - "{{ kibana_elasticsearch_cert }}:{{ kibana_elasticsearch_cert }}"
+      - "{{ kibana_elasticsearch_key }}:{{ kibana_elasticsearch_key }}:"
+  tags:
+    - kibana

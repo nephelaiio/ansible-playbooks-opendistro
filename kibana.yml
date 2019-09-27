@@ -1,0 +1,12 @@
+---
+- name: install opendistro kibana
+
+  hosts: opendistro_kibana
+
+  become: yes
+
+  roles:
+
+    - nephelaiio.plugins
+    - nephelaiio.docker
+    - nephelaiio.kibana

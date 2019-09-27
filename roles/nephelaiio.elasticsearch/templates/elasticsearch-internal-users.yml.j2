@@ -1,0 +1,26 @@
+---
+{{ elasticsearch_config_admin_user }}:
+  hash: "{{ elasticsearch_config_admin_pass | password_hash('bcrypt') }}"
+  reserved: true
+  backend_roles:
+    - "admin"
+  description: "Admin user"
+
+{{ elasticsearch_config_kibana_user }}:
+  hash: "{{ elasticsearch_config_kibana_pass | password_hash('bcrypt') }}"
+  reserved: true
+  description: "Kibana user"
+
+{{ elasticsearch_config_logstash_user }}:
+  hash: "{{ elasticsearch_config_logstash_pass | password_hash('bcrypt') }}"
+  reserved: false
+  backend_roles:
+    - "logstash" 
+  description: "Logstash user"
+
+{{ elasticsearch_config_metricbeat_user }}:
+  hash: "{{ elasticsearch_config_metricbeat_pass | password_hash('bcrypt') }}"
+  reserved: false
+  backend_roles:
+    - "logstash" 
+  description: "Logstash user"

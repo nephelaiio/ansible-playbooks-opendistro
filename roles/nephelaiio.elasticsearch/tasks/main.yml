@@ -1,0 +1,222 @@
+---
+- name: install docker
+  include_role:
+    name: nephelaiio.docker
+  vars:
+    docker_log_conf:
+      log-driver: "json-file"
+      log-opts:
+        max-size: "10m"
+        max-file: '3'
+      dns: "{{ elasticsearch_dns_forwarders }}"
+    docker_log_conf_manage: yes
+    docker_configuration_template: override.conf.j2
+    docker_configuration_file: /etc/systemd/system/docker.service.d/override.conf
+
+- name: configure sysctl
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_set: yes
+  loop_control:
+    label: "{{ item.name }}"
+  loop:
+    - name: vm.max_map_count
+      value: 262144
+    - name: net.ipv6.conf.all.disable_ipv6
+      value: 1
+    - name: net.ipv6.conf.default.disable_ipv6
+      value: 1
+    - name: net.ipv6.conf.lo.disable_ipv6
+      value: 1
+  notify: reboot elasticsearch node
+  tags:
+    - elasticsearch
+
+- block:
+
+    - name: inspect docker container
+      docker_container:
+        name: elasticsearch-inspect 
+        image: "{{ elasticsearch_docker_image }}"
+        command: id
+        detach: false
+      register: elasticsearch_inspect
+      changed_when: false
+
+    - name: record elasticsearch user metadata
+      set_fact:
+        elasticsearch_user_info: "{{ elasticsearch_inspect.ansible_facts.docker_container.Output }}"
+
+    - name: record elasticsearch user attributes
+      set_fact:
+        elasticsearch_user_id: "{{ elasticsearch_user_info | regex_search(userid_regex, '\\1') | first }}"
+      vars:
+        userid_regex: 'uid=([0-9]+)\('
+        username_regex: 'uid=[0-9]+\(([^ ]+)\)'
+
+  when: elasticsearch_user_id is not defined
+  tags:
+    - always
+
+- name: enumerate system users
+  getent:
+    database: passwd
+  register: passwd_query
+  tags:
+    - always
+
+- name: index system users
+  set_fact:
+    elasticsearch_user_present: yes
+    elasticsearch_user_name: "{{ elasticsearch_uname }}"
+  vars:
+    elasticsearch_uid: "{{ item[1] }}"
+    elasticsearch_uname: "{{ item[3] | split_with(',') | first }}"
+  loop_control:
+    label: "{{ elasticsearch_uname }} {{ elasticsearch_uid }}"
+  loop: "{{ passwd_query.ansible_facts.getent_passwd.values() | list }}"
+  when: (elasticsearch_uid | string) == (elasticsearch_user_id | string)
+  tags:
+    - always
+
+- name: create elasticsearch user
+  user:
+    name: "{{ elasticsearch_user_name }}"
+    uid: "{{ elasticsearch_user_id }}"
+  when: not elasticsearch_user_present | default('no') | bool
+  tags:
+    - elasticsearch
+
+- name: manage elasticsearch configuration directories
+  file:
+    state: directory
+    path: "{{ item }}"
+    owner: "{{ elasticsearch_user_name }}"
+  loop: "{{ elasticsearch_config_files | map('dirname') | list | unique }}"
+  tags:
+    - elasticsearch
+
+- name: manage elasticsearch main configuration
+  template:
+    src: elasticsearch-main.yml.j2
+    dest: "{{ elasticsearch_config_main }}"
+    owner: "{{ elasticsearch_user_name }}"
+    mode: 0640
+  vars:
+    elasticsearch_config_nodename: "{{ ansible_fqdn }}"
+    elasticsearch_config_nodes: "{{ elasticsearch_nodes }}"
+    elasticsearch_config_node_cert: "{{ elasticsearch_node_cert }}"
+    elasticsearch_config_node_key: "{{ elasticsearch_node_key }}"
+    elasticsearch_config_ca_cert: "{{ elasticsearch_ca_cert }}"
+    elasticsearch_config_node_base_dn: "{{ elasticsearch_node_base_dn }}"
+    elasticsearch_config_admin_dn: "{{ elasticsearch_admin_dn }}"
+  notify: restart elasticsearch
+  tags:
+    - elasticsearch
+
+- name: manage elasticsearch users configuration
+  template:
+    src: elasticsearch-internal-users.yml.j2
+    dest: "{{ elasticsearch_config_users }}"
+    owner: "{{ elasticsearch_user_name }}"
+    mode: 0640
+  vars:
+    elasticsearch_config_admin_user: "{{ elasticsearch_admin_user }}"
+    elasticsearch_config_admin_pass: "{{ elasticsearch_admin_pass }}"
+    elasticsearch_config_kibana_user: "{{ elasticsearch_kibana_user }}"
+    elasticsearch_config_kibana_pass: "{{ elasticsearch_kibana_pass }}"
+    elasticsearch_config_logstash_user: "{{ elasticsearch_logstash_user }}"
+    elasticsearch_config_logstash_pass: "{{ elasticsearch_logstash_pass }}"
+    elasticsearch_config_metricbeat_user: "{{ elasticsearch_metricbeat_user }}"
+    elasticsearch_config_metricbeat_pass: "{{ elasticsearch_metricbeat_pass }}"
+    elasticsearch_config_node_key: "{{ elasticsearch_node_key }}"
+    elasticsearch_config_ca_cert: "{{ elasticsearch_ca_cert }}"
+    elasticsearch_config_node_base_dn: "{{ elasticsearch_node_base_dn }}"
+    elasticsearch_config_admin_dn: "{{ elasticsearch_admin_dn }}"
+  notify: restart elasticsearch
+  tags:
+    - elasticsearch
+
+- name: update security index
+  docker_container:
+    name: "{{ elasticsearch_container_name }}"
+    interactive: yes
+    tty: yes
+    command: /bin/bash /usr/share/elasticsearch/plugins/opendistro_security/tools/securityadmin.sh
+  run_once: yes
+
+- name: build elasticsearch security script override
+  copy:
+    dest: "{{ elasticsearch_security_script }}"
+    content: |
+      #!/usr/bin/env bash
+    owner: "{{ elasticsearch_user_name }}"
+    mode: 0550
+  tags:
+    - elasticsearch
+
+- name: clean up docker inspect container
+  docker_container:
+    name: elasticsearch-inspect 
+    state: absent
+  changed_when: false
+
+- name: install acl requirements
+  package:
+    name: acl
+  tags:
+    - elasticsearch
+
+- name: manage elasticsearch certificate permissions
+  acl:
+    path: "{{ item }}"
+    entity: "{{ elasticsearch_user_name }}"
+    etype: user
+    permissions: r
+    state: present
+  loop:
+    - "{{ elasticsearch_ca_cert }}"
+    - "{{ elasticsearch_node_cert }}"
+    - "{{ elasticsearch_node_key }}"
+    - "{{ elasticsearch_admin_cert }}"
+    - "{{ elasticsearch_admin_key }}"
+  tags:
+    - elasticsearch
+
+- name: manage elasticsearch data permissions
+  acl:
+    path: "{{ elasticsearch_data_path }}"
+    entity: "{{ elasticsearch_user_name }}"
+    etype: user
+    permissions: rwx
+    state: present
+    recursive: yes
+  tags:
+    - elasticsearch
+
+- name: install elasticsearch docker image and service
+  include_role:
+    name: mhutter.docker-systemd-service
+    apply:
+      tags:
+        - elasticsearch
+  vars:
+    container_name: "{{ elasticsearch_container_name }}"
+    container_image: "{{ elasticsearch_docker_image }}"
+    service_name: "{{ container_name }}"
+    container_host_network: true
+    container_env:
+      ES_JAVA_OPTS: "-Xms{{ (ansible_memtotal_mb / 2) | int }}m -Xmx{{ (ansible_memtotal_mb / 2) | int }}m"
+    container_volumes:
+      - "{{ elasticsearch_config_main }}:/usr/share/elasticsearch/config/elasticsearch.yml"
+      - "{{ elasticsearch_config_users }}:/usr/share/elasticsearch/plugins/opendistro_security/securityconfig/internal_users.yml"
+      - "{{ elasticsearch_security_script }}:/usr/share/elasticsearch/plugins/opendistro_security/tools/install_demo_configuration.sh"
+      - "{{ elasticsearch_data_path }}:/usr/share/elasticsearch/data/nodes"
+      - "{{ elasticsearch_ca_cert }}:/usr/share/elasticsearch/config/{{ elasticsearch_ca_cert | basename }}"
+      - "{{ elasticsearch_node_cert }}:/usr/share/elasticsearch/config/{{ elasticsearch_node_cert | basename }}"
+      - "{{ elasticsearch_node_key }}:/usr/share/elasticsearch/config/{{ elasticsearch_node_key | basename }}"
+      - "{{ elasticsearch_admin_cert }}:/usr/share/elasticsearch/config/{{ elasticsearch_admin_cert | basename }}"
+      - "{{ elasticsearch_admin_key }}:/usr/share/elasticsearch/config/{{ elasticsearch_admin_key | basename }}"
+  tags:
+    - elasticsearch

@@ -1,0 +1,27 @@
+---
+opendistro_release: 1.2.0
+elasticsearch_service_port: 9200
+elasticsearch_service_name: elasticsearch
+elasticsearch_container_name: "{{ elasticsearch_service_name }}"
+elasticsearch_docker_image: "amazon/opendistro-for-elasticsearch:{{ opendistro_release }}"
+elasticsearch_config_main: /etc/elasticsearch/elasticsearch.yml
+elasticsearch_config_users: /etc/elasticsearch/internal_users.yml
+elasticsearch_config_files:
+  - "{{ elasticsearch_config_main }}"
+  - "{{ elasticsearch_config_users }}"
+  - "{{ elasticsearch_security_script }}"
+elasticsearch_security_script: /etc/elasticsearch/security.sh
+elasticsearch_data_path: /var/lib/elasticsearch
+elasticsearch_ca_cert: /etc/ipa/ca.crt
+elasticsearch_node_cert: "/etc/pki/certs/{{ ansible_fqdn }}.crt"
+elasticsearch_node_key: "/etc/pki/private/{{ ansible_fqdn }}.key"
+elasticsearch_admin_cert: "/etc/pki/certs/{{ ansible_fqdn }}.crt"
+elasticsearch_admin_key: "/etc/pki/private/{{ ansible_fqdn }}.key"
+#elasticsearch_admin_dn
+# taken from /usr/local/bin/docker-entrypoint.sh inside docker image
+elasticsearch_user_id: 1000
+elasticsearch_user_name: elasticsearch
+elasticsearch_dns_forwarders:
+  - 1.1.1.1
+  - 8.8.8.8
+elasticsearch_nodes: "{{ groups['opendistro_elasticsearch'] }}"
