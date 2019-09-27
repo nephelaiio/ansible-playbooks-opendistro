@@ -102,13 +102,13 @@
     src: elasticsearch-main.yml.j2
     dest: "{{ elasticsearch_config_main }}"
     owner: "{{ elasticsearch_user_name }}"
-    mode: 0640
+    mode: 0600
   vars:
     elasticsearch_config_nodename: "{{ ansible_fqdn }}"
     elasticsearch_config_nodes: "{{ elasticsearch_nodes }}"
-    elasticsearch_config_node_cert: "{{ elasticsearch_node_cert }}"
-    elasticsearch_config_node_key: "{{ elasticsearch_node_key }}"
-    elasticsearch_config_ca_cert: "{{ elasticsearch_ca_cert }}"
+    elasticsearch_config_node_cert: "{{ elasticsearch_node_certfile }}"
+    elasticsearch_config_node_key: "{{ elasticsearch_node_keyfile }}"
+    elasticsearch_config_ca_cert: "{{ elasticsearch_ca_certfile }}"
     elasticsearch_config_node_base_dn: "{{ elasticsearch_node_base_dn }}"
     elasticsearch_config_admin_dn: "{{ elasticsearch_admin_dn }}"
   notify: restart elasticsearch
@@ -120,7 +120,7 @@
     src: elasticsearch-internal-users.yml.j2
     dest: "{{ elasticsearch_config_users }}"
     owner: "{{ elasticsearch_user_name }}"
-    mode: 0640
+    mode: 0600
   vars:
     elasticsearch_config_admin_user: "{{ elasticsearch_admin_user }}"
     elasticsearch_config_admin_pass: "{{ elasticsearch_admin_pass }}"
@@ -138,14 +138,6 @@
   tags:
     - elasticsearch
 
-- name: update security index
-  docker_container:
-    name: "{{ elasticsearch_container_name }}"
-    interactive: yes
-    tty: yes
-    command: /bin/bash /usr/share/elasticsearch/plugins/opendistro_security/tools/securityadmin.sh
-  run_once: yes
-
 - name: build elasticsearch security script override
   copy:
     dest: "{{ elasticsearch_security_script }}"
@@ -162,6 +154,24 @@
     state: absent
   changed_when: false
 
+- name: manage admin certificate file
+  copy:
+    content: "{{ elasticsearch_admin_cert }}"
+    dest: "{{ elasticsearch_admin_certfile }}"
+    mode: 0600
+    owner: "{{ elasticsearch_user_name }}"
+  tags:
+    - elasticsearch
+
+- name: manage admin key file
+  copy:
+    content: "{{ elasticsearch_admin_key }}"
+    dest: "{{ elasticsearch_admin_keyfile }}"
+    mode: 0600
+    owner: "{{ elasticsearch_user_name }}"
+  tags:
+    - elasticsearch
+
 - name: install acl requirements
   package:
     name: acl
@@ -176,11 +186,11 @@
     permissions: r
     state: present
   loop:
-    - "{{ elasticsearch_ca_cert }}"
-    - "{{ elasticsearch_node_cert }}"
-    - "{{ elasticsearch_node_key }}"
-    - "{{ elasticsearch_admin_cert }}"
-    - "{{ elasticsearch_admin_key }}"
+    - "{{ elasticsearch_ca_certfile }}"
+    - "{{ elasticsearch_node_certfile }}"
+    - "{{ elasticsearch_node_keyfile }}"
+    - "{{ elasticsearch_admin_certfile }}"
+    - "{{ elasticsearch_admin_keyfile }}"
   tags:
     - elasticsearch
 
@@ -213,10 +223,16 @@
       - "{{ elasticsearch_config_users }}:/usr/share/elasticsearch/plugins/opendistro_security/securityconfig/internal_users.yml"
       - "{{ elasticsearch_security_script }}:/usr/share/elasticsearch/plugins/opendistro_security/tools/install_demo_configuration.sh"
       - "{{ elasticsearch_data_path }}:/usr/share/elasticsearch/data/nodes"
-      - "{{ elasticsearch_ca_cert }}:/usr/share/elasticsearch/config/{{ elasticsearch_ca_cert | basename }}"
-      - "{{ elasticsearch_node_cert }}:/usr/share/elasticsearch/config/{{ elasticsearch_node_cert | basename }}"
-      - "{{ elasticsearch_node_key }}:/usr/share/elasticsearch/config/{{ elasticsearch_node_key | basename }}"
-      - "{{ elasticsearch_admin_cert }}:/usr/share/elasticsearch/config/{{ elasticsearch_admin_cert | basename }}"
-      - "{{ elasticsearch_admin_key }}:/usr/share/elasticsearch/config/{{ elasticsearch_admin_key | basename }}"
+      - "{{ elasticsearch_ca_certfile }}:/usr/share/elasticsearch/config/{{ elasticsearch_ca_certfile | basename }}"
+      - "{{ elasticsearch_node_certfile }}:/usr/share/elasticsearch/config/{{ elasticsearch_node_certfile | basename }}"
+      - "{{ elasticsearch_node_keyfile }}:/usr/share/elasticsearch/config/{{ elasticsearch_node_keyfile | basename }}"
+      - "{{ elasticsearch_admin_certfile }}:/usr/share/elasticsearch/config/{{ elasticsearch_admin_certfile | basename }}"
+      - "{{ elasticsearch_admin_keyfile }}:/usr/share/elasticsearch/config/{{ elasticsearch_admin_keyfile | basename }}"
+  tags:
+    - elasticsearch
+
+- name: update security index
+  command: docker exec {{ elasticsearch_container_name }} /bin/bash /usr/share/elasticsearch/plugins/opendistro_security/tools/securityadmin.sh -cacert /usr/share/elasticsearch/config/{{ elasticsearch_ca_certfile | basename }} -cert /usr/share/elasticsearch/config/{{ elasticsearch_admin_certfile | basename }} -key /usr/share/elasticsearch/config/{{ elasticsearch_admin_keyfile | basename }}
+  run_once: yes
   tags:
     - elasticsearch
