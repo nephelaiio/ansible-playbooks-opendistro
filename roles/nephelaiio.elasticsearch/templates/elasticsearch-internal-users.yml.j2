@@ -28,3 +28,10 @@ _meta:
   backend_roles:
     - "logstash" 
   description: "Logstash user"
+
+{{ elasticsearch_config_kibana_admin_user }}:
+  hash: "{{ elasticsearch_config_kibana_admin_pass | password_hash('bcrypt') }}"
+  reserved: false
+  backend_roles:
+    - "kibanauser"
+  description: "Kibana admin user"

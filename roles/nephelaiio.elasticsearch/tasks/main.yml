@@ -122,6 +122,8 @@
     owner: "{{ elasticsearch_user_name }}"
     mode: 0600
   vars:
+    elasticsearch_config_kibana_admin_user: "{{ kibana_admin_user }}"
+    elasticsearch_config_kibana_admin_pass: "{{ kibana_admin_pass }}"
     elasticsearch_config_admin_user: "{{ elasticsearch_admin_user }}"
     elasticsearch_config_admin_pass: "{{ elasticsearch_admin_pass }}"
     elasticsearch_config_kibana_user: "{{ elasticsearch_kibana_user }}"
