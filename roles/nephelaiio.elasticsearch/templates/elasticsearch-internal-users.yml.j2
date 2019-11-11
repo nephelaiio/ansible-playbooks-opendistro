@@ -1,4 +1,8 @@
 ---
+_meta:
+  type: "internalusers"
+  config_version: 2
+
 {{ elasticsearch_config_admin_user }}:
   hash: "{{ elasticsearch_config_admin_pass | password_hash('bcrypt') }}"
   reserved: true

@@ -17,9 +17,8 @@ path.data: /usr/share/elasticsearch/data/nodes
 bootstrap.memory_lock: 'false'
 opendistro_security.nodes_dn:
 {% for config_node in elasticsearch_config_nodes %}
-  - CN={{ config_node }},O={{ elasticsearch_config_node_base_dn }}
+  - CN={{ config_node }},{{ elasticsearch_config_node_base_dn }}
 {% endfor %}
-  - /CN=.*/
 opendistro_security.allow_default_init_securityindex: true
 opendistro_security.authcz.admin_dn:
   - {{ elasticsearch_config_admin_dn }}

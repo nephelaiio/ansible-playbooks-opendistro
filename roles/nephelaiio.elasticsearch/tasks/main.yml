@@ -231,8 +231,15 @@
   tags:
     - elasticsearch
 
+- meta: flush_handlers
+
+- name: wait for elasticsearch startup
+  wait_for:
+    port: 9300
+    delay: 10
+
 - name: update security index
-  command: docker exec {{ elasticsearch_container_name }} /bin/bash /usr/share/elasticsearch/plugins/opendistro_security/tools/securityadmin.sh -cacert /usr/share/elasticsearch/config/{{ elasticsearch_ca_certfile | basename }} -cert /usr/share/elasticsearch/config/{{ elasticsearch_admin_certfile | basename }} -key /usr/share/elasticsearch/config/{{ elasticsearch_admin_keyfile | basename }}
+  command: docker exec {{ elasticsearch_container_name }} /bin/bash /usr/share/elasticsearch/plugins/opendistro_security/tools/securityadmin.sh -icl -nhnv -cacert /usr/share/elasticsearch/config/{{ elasticsearch_ca_certfile | basename }} -cert /usr/share/elasticsearch/config/{{ elasticsearch_admin_certfile | basename }} -key /usr/share/elasticsearch/config/{{ elasticsearch_admin_keyfile | basename }} -h {{ ansible_fqdn }} -cd /usr/share/elasticsearch/plugins/opendistro_security/securityconfig/
   run_once: yes
   tags:
-    - elasticsearch
+    - securityadmin
