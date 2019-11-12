@@ -1,0 +1,67 @@
+---
+_meta:
+  type: "config"
+  config_version: 2
+
+config:
+  dynamic:
+    authc:
+      internal:
+        description: internal users db authentication
+        http_enabled: true
+        transport_enabled: true
+        order: 1
+        http_authenticator:
+          type: basic
+          challenge: true
+        authentication_backend:
+          type: intern
+      wpnopsbiz:
+        description: wpnops.biz ldap authentication
+        http_enabled: true
+        transport_enabled: false
+        order: 2
+        http_authenticator:
+          type: basic
+          challenge: false
+        authentication_backend:
+          type: ldap
+          config:
+            hosts:
+{% for ldap_host in elasticsearch_config_ldap_hosts %}
+              - {{ ldap_host }}:389
+{% endfor %}
+            bind_dn: {{ elasticsearch_config_ldap_dn }}
+            password: {{ elasticsearch_config_ldap_pass }}
+            userbase: '{{ elasticsearch_config_ldap_userbase }}'
+            usersearch: '(sAMAccountName={0})'
+            username_attribute: cn
+            enable_ssl: false
+            enable_start_tls: false
+            enable_ssl_client_auth: false
+            verify_hostnames: false
+
+    authz:
+      wpnopsbiz:
+        description: wpnops.biz ldap authorization
+        http_enabled: true
+        transport_enabled: false
+        authorization_backend:
+          type: ldap
+          config:
+            hosts:
+{% for ldap_host in elasticsearch_config_ldap_hosts %}
+              - {{ ldap_host }}:389
+{% endfor %}
+            bind_dn: {{ elasticsearch_config_ldap_dn }}
+            password: {{ elasticsearch_config_ldap_pass }}
+            userbase: '{{ elasticsearch_config_ldap_userbase }}'
+            usersearch: '(sAMAccountName={0})'
+            username_attribute: uid
+            enable_ssl: false
+            enable_start_tls: false
+            enable_ssl_client_auth: false
+            verify_hostnames: false
+            rolesearch: '(member={0})'
+            rolebase: '{{ elasticsearch_config_ldap_rolebase }}'
+            rolename: cn

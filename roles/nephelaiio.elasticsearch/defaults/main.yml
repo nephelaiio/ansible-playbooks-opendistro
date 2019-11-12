@@ -6,6 +6,7 @@ elasticsearch_container_name: "{{ elasticsearch_service_name }}"
 elasticsearch_docker_image: "amazon/opendistro-for-elasticsearch:{{ opendistro_release }}"
 elasticsearch_config_main: /etc/elasticsearch/elasticsearch.yml
 elasticsearch_config_users: /etc/elasticsearch/internal_users.yml
+elasticsearch_config_security: /etc/elasticsearch/security.yml
 elasticsearch_config_files:
   - "{{ elasticsearch_config_main }}"
   - "{{ elasticsearch_config_users }}"

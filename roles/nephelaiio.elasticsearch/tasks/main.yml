@@ -115,6 +115,24 @@
   tags:
     - elasticsearch
 
+- name: manage elasticsearch security configuration
+  template:
+    src: elasticsearch-security.yml.j2
+    dest: "{{ elasticsearch_config_security }}"
+    owner: "{{ elasticsearch_user_name }}"
+    mode: 0600
+  vars:
+    elasticsearch_config_ldap_hosts:
+      - ad03.wpnops.biz
+      - ad04.wpnops.biz
+    elasticsearch_config_ldap_dn: "{{ elasticsearch_ldap_dn }}"
+    elasticsearch_config_ldap_pass: "{{ elasticsearch_ldap_pass }}"
+    elasticsearch_config_ldap_userbase: "{{ elasticsearch_ldap_userbase }}"
+    elasticsearch_config_ldap_rolebase: "{{ elasticsearch_ldap_rolebase }}"
+  notify: restart elasticsearch
+  tags:
+    - elasticsearch
+
 - name: manage elasticsearch users configuration
   template:
     src: elasticsearch-internal-users.yml.j2
@@ -122,8 +140,6 @@
     owner: "{{ elasticsearch_user_name }}"
     mode: 0600
   vars:
-    elasticsearch_config_kibana_admin_user: "{{ kibana_admin_user }}"
-    elasticsearch_config_kibana_admin_pass: "{{ kibana_admin_pass }}"
     elasticsearch_config_admin_user: "{{ elasticsearch_admin_user }}"
     elasticsearch_config_admin_pass: "{{ elasticsearch_admin_pass }}"
     elasticsearch_config_kibana_user: "{{ elasticsearch_kibana_user }}"
@@ -223,6 +239,7 @@
     container_volumes:
       - "{{ elasticsearch_config_main }}:/usr/share/elasticsearch/config/elasticsearch.yml"
       - "{{ elasticsearch_config_users }}:/usr/share/elasticsearch/plugins/opendistro_security/securityconfig/internal_users.yml"
+      - "{{ elasticsearch_config_security }}:/usr/share/elasticsearch/plugins/opendistro_security/securityconfig/config.yml"
       - "{{ elasticsearch_security_script }}:/usr/share/elasticsearch/plugins/opendistro_security/tools/install_demo_configuration.sh"
       - "{{ elasticsearch_data_path }}:/usr/share/elasticsearch/data/nodes"
       - "{{ elasticsearch_ca_certfile }}:/usr/share/elasticsearch/config/{{ elasticsearch_ca_certfile | basename }}"
