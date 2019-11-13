@@ -78,6 +78,7 @@
     mode: 0640
   vars:
     kibana_config_url: "{{ kibana_url }}"
+    kibana_config_elasticsearch_proto: "{{ kibana_elasticsearch_proto }}"
     kibana_config_elasticsearch_hosts: "{{ kibana_elasticsearch_hosts }}"
     kibana_config_elasticsearch_user: "{{ elasticsearch_kibana_user }}"
     kibana_config_elasticsearch_pass: "{{ elasticsearch_kibana_pass }}"

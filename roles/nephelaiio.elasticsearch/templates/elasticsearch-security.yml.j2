@@ -42,6 +42,14 @@ config:
             verify_hostnames: false
 
     authz:
+      internal:
+        type: username
+        authentication_backend: intern
+        allowed_tries: 10
+        time_window_seconds: 3600
+        block_expiry_seconds: 600
+        max_blocked_clients: 100000
+        max_tracked_clients: 100000
       wpnopsbiz:
         description: wpnops.biz ldap authorization
         http_enabled: true

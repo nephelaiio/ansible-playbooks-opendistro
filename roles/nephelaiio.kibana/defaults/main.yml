@@ -5,7 +5,8 @@ kibana_container_name: "{{ kibana_service_name }}"
 kibana_conf_file: /etc/kibana.yml
 kibana_service_port: 5601
 kibana_elasticsearch_port: 9200
-kibana_elasticsearch_hosts: "{{ groups['opendistro_elasticsearch'] | map('map_format', 'https://%s:' + (kibana_elasticsearch_port | string)) | list }}"
+kibana_elasticsearch_proto: http
+kibana_elasticsearch_hosts: "{{ groups['opendistro_elasticsearch'] | map('map_format', kibana_elasticsearch_proto + '://%s:' + (kibana_elasticsearch_port | string)) | list }}"
 kibana_elasticsearch_ca_cert: /etc/ipa/ca.crt
 kibana_elasticsearch_cert: "/etc/pki/certs/{{ ansible_fqdn }}.crt"
 kibana_elasticsearch_key: "/etc/pki/private/{{ ansible_fqdn }}.key"
