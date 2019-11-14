@@ -7,6 +7,7 @@ elasticsearch_docker_image: "amazon/opendistro-for-elasticsearch:{{ opendistro_r
 elasticsearch_config_main: /etc/elasticsearch/elasticsearch.yml
 elasticsearch_config_users: /etc/elasticsearch/internal_users.yml
 elasticsearch_config_security: /etc/elasticsearch/security.yml
+elasticsearch_initialize_security: no
 elasticsearch_config_files:
   - "{{ elasticsearch_config_main }}"
   - "{{ elasticsearch_config_users }}"

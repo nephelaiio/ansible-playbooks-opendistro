@@ -129,6 +129,10 @@
     elasticsearch_config_ldap_pass: "{{ elasticsearch_ldap_pass }}"
     elasticsearch_config_ldap_userbase: "{{ elasticsearch_ldap_userbase }}"
     elasticsearch_config_ldap_rolebase: "{{ elasticsearch_ldap_rolebase }}"
+    elasticsearch_config_admin_user: "{{ elasticsearch_admin_user }}"
+    elasticsearch_config_kibana_user: "{{ elasticsearch_kibana_user }}"
+    elasticsearch_config_logstash_user: "{{ elasticsearch_logstash_user }}"
+    elasticsearch_config_metricbeat_user: "{{ elasticsearch_metricbeat_user }}"
   notify: restart elasticsearch
   tags:
     - elasticsearch
@@ -209,6 +213,7 @@
     - "{{ elasticsearch_node_keyfile }}"
     - "{{ elasticsearch_admin_certfile }}"
     - "{{ elasticsearch_admin_keyfile }}"
+  changed_when: false
   tags:
     - elasticsearch
 
@@ -220,6 +225,7 @@
     permissions: rwx
     state: present
     recursive: yes
+  changed_when: false
   tags:
     - elasticsearch
 
@@ -260,5 +266,6 @@
 - name: update security index
   command: docker exec {{ elasticsearch_container_name }} /bin/bash /usr/share/elasticsearch/plugins/opendistro_security/tools/securityadmin.sh -icl -nhnv -cacert /usr/share/elasticsearch/config/{{ elasticsearch_ca_certfile | basename }} -cert /usr/share/elasticsearch/config/{{ elasticsearch_admin_certfile | basename }} -key /usr/share/elasticsearch/config/{{ elasticsearch_admin_keyfile | basename }} -h {{ ansible_fqdn }} -cd /usr/share/elasticsearch/plugins/opendistro_security/securityconfig/
   run_once: yes
+  when: elasticsearch_initialize_security | bool
   tags:
     - securityadmin
